@@ -71,6 +71,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bugout@0.0.10/build/bugout.min.js"></script>
     <script>
         const $=id=>document.getElementById(id);
         const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),roomCode=$('roomCode'),
@@ -78,7 +79,7 @@
               hint=$('hint'),msgInput=$('msgInput'),sendBtn=$('sendBtn'),
               hostBtn=$('hostBtn'),hostArea=$('hostArea'),joinArea=$('joinArea');
 
-        let pc=null,dc=null,isHost=false,connected=false,ROOM='----';
+        let b=null,connected=false,ROOM='----';
         let localMessages=[];
 
         function genRoom(){
@@ -108,8 +109,6 @@
         function deleteRoomData(){
             if(ROOM!=='----'){
                 localStorage.removeItem('chat_'+ROOM);
-                localStorage.removeItem('room_'+ROOM+'_offer');
-                localStorage.removeItem('room_'+ROOM+'_answer');
             }
         }
 
@@ -142,154 +141,25 @@
             hint.style.display='none';
         }
 
-        function makePC(){
-            const p=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-            p.onicecandidate=e=>{if(e.candidate) candidates.push(e.candidate)};
-            p.onconnectionstatechange=()=>{
-                if(p.connectionState==='connected'){
-                    updStatus(true);
-                    addSys('🎉 تمت عملية الدخول إلى الغرفة '+ROOM+' بنجاح!');
-                }
-                if(p.connectionState==='disconnected'||p.connectionState==='failed'){
-                    updStatus(false);
-                    addSys('⚠️ انقطع الاتصال');
-                }
-            };
-            p.ondatachannel=e=>{dc=e.channel;setupDC(dc)};
-            return p;
-        }
-
-        function setupDC(ch){
-            dc=ch;
-            ch.onopen=()=>{updStatus(true);addSys('📡 قناة البيانات مفتوحة')};
-            ch.onclose=()=>{updStatus(false);addSys('📡 قناة البيانات أغلقت')};
-            ch.onmessage=e=>{
-                try{
-                    const d=JSON.parse(e.data);
-                    if(d.type==='chat'){
-                        addMsg(d.text,false);
-                        localMessages.push({text:d.text,isSelf:false,time:Date.now()});
-                        saveMessages();
-                    }
-                }catch{}
-            };
-        }
-
-        async function waitICE(p){
-            return new Promise(r=>{
-                if(p.iceGatheringState==='complete') r();
-                else p.addEventListener('icegatheringstatechange',function h(){
-                    if(p.iceGatheringState==='complete'){p.removeEventListener('icegatheringstatechange',h);r()}
-                });
-                setTimeout(r,3000);
-            });
-        }
-
-        let candidates=[];
-
-        async function doHost(){
-            ROOM=genRoom();
-            roomNum.textContent=ROOM;
-            roomCode.textContent=ROOM;
-            isHost=true;
-            hostArea.style.display='block';
-            joinArea.style.display='none';
-            hostBtn.style.display='none';
-            resetBtn.style.display='block';
-            msgInput.disabled=false;
-            sendBtn.disabled=false;
-            localMessages=[];
-            loadMessages();
-            addSys('🏠 تم إنشاء الغرفة: '+ROOM);
-            addSys('💬 الرسائل تُحفظ في هاتفك');
-            
-            pc=makePC();
-            dc=pc.createDataChannel('chat');
-            setupDC(dc);
-            const offer=await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await waitICE(pc);
-            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'offer',sdp:pc.localDescription.sdp,candidates,room:ROOM}))));
-            localStorage.setItem('room_'+ROOM+'_offer',full);
-            candidates=[];
-            addSys('⏳ في انتظار انضمام صديق...');
-            checkForAnswer();
-        }
-
-        async function doJoin(code){
-            ROOM=code;
-            roomNum.textContent=ROOM;
-            roomCode.textContent=ROOM;
-            isHost=false;
-            hostArea.style.display='block';
-            joinArea.style.display='none';
-            hostBtn.style.display='none';
-            resetBtn.style.display='block';
-            msgInput.disabled=false;
-            sendBtn.disabled=false;
-            localMessages=[];
-            loadMessages();
-            addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
-            addSys('💬 الرسائل تُحفظ في هاتفك');
-            
-            const offerCode=localStorage.getItem('room_'+ROOM+'_offer');
-            if(!offerCode){
-                addSys('❌ الغرفة غير موجودة على هذا الجهاز');
-                addSys('💡 يجب أن يكون المضيف على نفس المتصفح');
-                return;
-            }
-            
-            let data;
-            try{data=JSON.parse(decodeURIComponent(escape(atob(offerCode))))}catch{addSys('❌ خطأ في بيانات الغرفة');return}
-            pc=makePC();
-            if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
-            await pc.setRemoteDescription(new RTCSessionDescription({type:'offer',sdp:data.sdp}));
-            const ans=await pc.createAnswer();
-            await pc.setLocalDescription(ans);
-            await waitICE(pc);
-            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'answer',sdp:pc.localDescription.sdp,candidates,room:ROOM}))));
-            candidates=[];
-            localStorage.setItem('room_'+ROOM+'_answer',full);
-            addSys('📤 تم إرسال طلب الانضمام...');
-        }
-
-        function checkForAnswer(){
-            const interval=setInterval(async()=>{
-                if(connected){clearInterval(interval);return}
-                if(!isHost||!pc) return;
-                const ansCode=localStorage.getItem('room_'+ROOM+'_answer');
-                if(!ansCode) return;
-                try{
-                    const data=JSON.parse(decodeURIComponent(escape(atob(ansCode))));
-                    if(data.room!==ROOM) return;
-                    if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
-                    await pc.setRemoteDescription(new RTCSessionDescription({type:'answer',sdp:data.sdp}));
-                    addSys('✅ اكتمل الاتصال!');
-                    localStorage.removeItem('room_'+ROOM+'_answer');
-                    clearInterval(interval);
-                }catch(e){}
-            },2000);
-        }
-
         function sendMsg(){
             const t=msgInput.value.trim();
             if(!t) return;
             addMsg(t,true);
             localMessages.push({text:t,isSelf:true,time:Date.now()});
             saveMessages();
-            if(connected && dc && dc.readyState==='open'){
-                dc.send(JSON.stringify({type:'chat',text:t}));
-            } else if(!connected){
-                addSys('⚠️ في انتظار اتصال الطرف الآخر...');
+            if(b){
+                b.send(t);
             }
             msgInput.value='';
         }
 
         function resetAll(){
-            if(dc) dc.close();
-            if(pc) pc.close();
-            pc=null;dc=null;candidates=[];isHost=false;connected=false;
+            if(b){
+                b.close();
+                b=null;
+            }
             deleteRoomData();
+            connected=false;
             ROOM='----';
             roomNum.textContent='----';
             roomCode.textContent='----';
@@ -307,25 +177,83 @@
             addSys('🔄 تم مغادرة الغرفة وحذف جميع البيانات');
         }
 
-        hostBtn.onclick=()=>{
-            if(pc){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
-            doHost();
-        };
+        function createRoom(){
+            ROOM=genRoom();
+            roomNum.textContent=ROOM;
+            roomCode.textContent=ROOM;
+            hostArea.style.display='block';
+            joinArea.style.display='none';
+            hostBtn.style.display='none';
+            resetBtn.style.display='block';
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
+            localMessages=[];
+            loadMessages();
+            addSys('🏠 تم إنشاء الغرفة: '+ROOM);
 
-        joinBtn.onclick=async()=>{
+            b=new Bugout(ROOM);
+            b.on('connections',(c)=>{
+                if(c>1){
+                    connected=true;
+                    updStatus(true);
+                    addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
+                }
+            });
+            b.on('message',(address,data)=>{
+                addMsg(data,false);
+                localMessages.push({text:data,isSelf:false,time:Date.now()});
+                saveMessages();
+            });
+            b.on('server',(addr)=>{
+                addSys('✅ متصل بخادم التورنت');
+            });
+        }
+
+        function joinRoom(code){
+            ROOM=code;
+            roomNum.textContent=ROOM;
+            roomCode.textContent=ROOM;
+            hostArea.style.display='block';
+            joinArea.style.display='none';
+            hostBtn.style.display='none';
+            resetBtn.style.display='block';
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
+            localMessages=[];
+            loadMessages();
+            addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
+
+            b=new Bugout(ROOM);
+            b.on('connections',(c)=>{
+                if(c>1){
+                    connected=true;
+                    updStatus(true);
+                    addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
+                }
+            });
+            b.on('message',(address,data)=>{
+                addMsg(data,false);
+                localMessages.push({text:data,isSelf:false,time:Date.now()});
+                saveMessages();
+            });
+            b.on('server',(addr)=>{
+                addSys('✅ متصل بخادم التورنت');
+            });
+        }
+
+        hostBtn.onclick=createRoom;
+        joinBtn.onclick=()=>{
             const c=joinCode.value.trim();
             if(!c||c.length!==4||!/^\d{4}$/.test(c)){addSys('⚠️ كود الغرفة يجب أن يكون 4 أرقام');return}
-            if(pc){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
-            await doJoin(c);
+            joinRoom(c);
         };
-
         joinCode.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();joinBtn.click();}};
         resetBtn.onclick=resetAll;
         sendBtn.onclick=sendMsg;
         msgInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sendMsg();}};
 
         addSys('🚀 الموقع جاهز - اضغط "إنشاء غرفة" للبدء');
-        addSys('💡 للتجربة: افتح نافذة عادية ونافذة تخفي');
+        addSys('🌐 يعمل بين أي جهازين في العالم');
     </script>
 </body>
 </html>
