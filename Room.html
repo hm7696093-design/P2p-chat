@@ -23,8 +23,7 @@
         input:focus{border-color:#e94560}
         button{padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:.75rem;transition:.2s;font-family:inherit;white-space:nowrap}
         button:active{transform:scale(.95)}
-        .b1{background:#e94560;color:#fff}.b2{background:#0f3460;color:#eee;border:1px solid #2a2a4a}
-        .b3{background:#4ecca3;color:#000}.b4{background:#ffc107;color:#000}
+        .b1{background:#e94560;color:#fff}.b3{background:#4ecca3;color:#000}.b4{background:#ffc107;color:#000}
         .m{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
         .m::-webkit-scrollbar{width:3px}.m::-webkit-scrollbar-thumb{background:#2a2a4a;border-radius:10px}
         .msg{padding:8px 12px;border-radius:12px;font-size:.78rem;max-width:85%;word-break:break-word;animation:f .3s}
@@ -40,7 +39,6 @@
         .ht{text-align:center;color:#a0a0b0;font-size:.7rem;padding:15px;line-height:1.7}
         .code-box{background:#0d0d1a;border:2px dashed #4ecca3;border-radius:12px;padding:14px;text-align:center;margin:6px 0}
         .code-box .big-code{font-size:2rem;letter-spacing:10px;color:#4ecca3;font-weight:700;font-family:'Courier New',monospace}
-        .code-box .label{font-size:.6rem;color:#a0a0b0;margin-bottom:4px}
     </style>
 </head>
 <body>
@@ -55,7 +53,6 @@
             <button class="b1" id="hostBtn" style="width:100%">🏠 إنشاء غرفة جديدة</button>
             <div id="hostArea" style="display:none;">
                 <div class="code-box">
-                    <div class="label">🔑 كود الغرفة</div>
                     <div class="big-code" id="roomCode">----</div>
                 </div>
             </div>
@@ -66,13 +63,14 @@
             </div>
             <button class="b4" id="reset" style="width:100%">🔄 مغادرة الغرفة</button>
         </div>
-        <div class="m" id="msgs"><div class="ht" id="hint">👥 أهلاً بك!<br>اضغط "إنشاء غرفة" للبدء<br>أو أدخل كود صديقك للانضمام</div></div>
+        <div class="m" id="msgs"><div class="ht" id="hint">👥 أهلاً بك!<br>اضغط "إنشاء غرفة" للبدء</div></div>
         <div class="ir">
             <input id="msgInput" placeholder="اكتب رسالة..." disabled>
             <button class="sb" id="sendBtn" disabled>➤</button>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.1/peerjs.min.js"></script>
     <script>
         const $=id=>document.getElementById(id);
         const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),roomCode=$('roomCode'),
@@ -80,8 +78,7 @@
               hint=$('hint'),msgInput=$('msgInput'),sendBtn=$('sendBtn'),
               hostBtn=$('hostBtn'),hostArea=$('hostArea');
 
-        let pc=null,dc=null,isHost=false,connected=false,candidates=[];
-        let ROOM='----';
+        let peer=null,conn=null,isHost=false,connected=false,ROOM='----';
 
         function genRoom(){
             let r='';
@@ -118,131 +115,23 @@
             hint.style.display='none';
         }
 
-        function makePC(){
-            const p=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
-            p.onicecandidate=e=>{if(e.candidate) candidates.push(e.candidate)};
-            p.onconnectionstatechange=()=>{
-                if(p.connectionState==='connected'){
-                    updStatus(true);
-                    addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
-                }
-                if(p.connectionState==='disconnected'||p.connectionState==='failed'){
-                    updStatus(false);
-                    addSys('⚠️ انقطع الاتصال');
-                }
-            };
-            p.ondatachannel=e=>{dc=e.channel;setupDC(dc)};
-            return p;
-        }
-
-        function setupDC(ch){
-            dc=ch;
-            ch.onopen=()=>{updStatus(true);addSys('📡 تم فتح قناة المحادثة')};
-            ch.onclose=()=>{updStatus(false);addSys('📡 أغلقت قناة المحادثة')};
-            ch.onmessage=e=>{
-                try{const d=JSON.parse(e.data);if(d.type==='chat') addMsg(d.text,false)}
-                catch{addMsg(e.data,false)}
-            };
-        }
-
-        async function waitICE(p){
-            return new Promise(r=>{
-                if(p.iceGatheringState==='complete') r();
-                else p.addEventListener('icegatheringstatechange',function h(){
-                    if(p.iceGatheringState==='complete'){p.removeEventListener('icegatheringstatechange',h);r()}
-                });
-                setTimeout(r,3000);
-            });
-        }
-
-        async function doHost(){
-            ROOM=genRoom();
-            roomNum.textContent=ROOM;
-            roomCode.textContent=ROOM;
-            isHost=true;
-            hostArea.style.display='block';
-            msgInput.disabled=false;
-            sendBtn.disabled=false;
-            addSys('🏠 تم إنشاء الغرفة: '+ROOM);
-            addSys('💬 يمكنك الكتابة الآن حتى قبل انضمام الآخرين');
-            pc=makePC();
-            dc=pc.createDataChannel('chat');
-            setupDC(dc);
-            const offer=await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await waitICE(pc);
-            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'offer',sdp:pc.localDescription.sdp,candidates,room:ROOM}))));
-            localStorage.setItem('room_'+ROOM+'_offer',full);
-            candidates=[];
-            checkForAnswer();
-        }
-
-        async function doJoin(code){
-            ROOM=code;
-            roomNum.textContent=ROOM;
-            roomCode.textContent=ROOM;
-            isHost=false;
-            hostArea.style.display='block';
-            msgInput.disabled=false;
-            sendBtn.disabled=false;
-            addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
-            
-            const offerCode=localStorage.getItem('room_'+ROOM+'_offer');
-            if(!offerCode){
-                addSys('❌ الغرفة غير موجودة. تأكد من الكود أو اطلب من صديقك إنشاء الغرفة أولاً.');
-                addSys('💬 يمكنك الكتابة في هذه الغرفة حتى يتم الاتصال');
-                return;
-            }
-            
-            let data;
-            try{data=JSON.parse(decodeURIComponent(escape(atob(offerCode))))}catch{addSys('❌ خطأ في بيانات الغرفة');return}
-            pc=makePC();
-            if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
-            await pc.setRemoteDescription(new RTCSessionDescription({type:'offer',sdp:data.sdp}));
-            const ans=await pc.createAnswer();
-            await pc.setLocalDescription(ans);
-            await waitICE(pc);
-            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'answer',sdp:pc.localDescription.sdp,candidates,room:ROOM}))));
-            candidates=[];
-            localStorage.setItem('room_'+ROOM+'_answer',full);
-            addSys('📤 تم إرسال طلب الانضمام...');
-        }
-
-        function checkForAnswer(){
-            const interval=setInterval(async()=>{
-                if(connected){clearInterval(interval);return}
-                if(!isHost||!pc) return;
-                const ansCode=localStorage.getItem('room_'+ROOM+'_answer');
-                if(!ansCode) return;
-                try{
-                    const data=JSON.parse(decodeURIComponent(escape(atob(ansCode))));
-                    if(data.room!==ROOM) return;
-                    if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
-                    await pc.setRemoteDescription(new RTCSessionDescription({type:'answer',sdp:data.sdp}));
-                    addSys('✅ اكتمل الاتصال!');
-                    localStorage.removeItem('room_'+ROOM+'_answer');
-                    clearInterval(interval);
-                }catch(e){}
-            },2000);
-        }
-
         function sendMsg(){
             const t=msgInput.value.trim();
             if(!t) return;
-            if(connected && dc && dc.readyState==='open'){
-                dc.send(JSON.stringify({type:'chat',text:t}));
+            if(connected && conn && conn.open){
+                conn.send({type:'chat',text:t});
                 addMsg(t,true);
-            } else {
+            } else if(!connected){
                 addMsg(t,true);
-                addSys('⚠️ لم يتم الإرسال - لا يوجد اتصال حتى الآن');
+                addSys('⚠️ في انتظار اتصال الطرف الآخر...');
             }
             msgInput.value='';
         }
 
         function resetAll(){
-            if(dc) dc.close();
-            if(pc) pc.close();
-            pc=null;dc=null;candidates=[];isHost=false;connected=false;
+            if(conn) conn.close();
+            if(peer) peer.destroy();
+            peer=null;conn=null;isHost=false;connected=false;
             ROOM='----';
             roomNum.textContent='----';
             roomCode.textContent='----';
@@ -256,25 +145,85 @@
             addSys('🔄 تم مغادرة الغرفة');
         }
 
+        function doHost(){
+            ROOM=genRoom();
+            roomNum.textContent=ROOM;
+            roomCode.textContent=ROOM;
+            isHost=true;
+            hostArea.style.display='block';
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
+            addSys('🏠 تم إنشاء الغرفة: '+ROOM);
+            addSys('⏳ في انتظار انضمام صديق...');
+
+            peer=new Peer(ROOM);
+            peer.on('open',()=>{
+                addSys('✅ الغرفة جاهزة على السيرفر');
+            });
+            peer.on('connection',(c)=>{
+                conn=c;
+                setupConn();
+            });
+            peer.on('error',(e)=>{
+                addSys('❌ خطأ: '+e.type);
+            });
+        }
+
+        function doJoin(code){
+            ROOM=code;
+            roomNum.textContent=ROOM;
+            roomCode.textContent=ROOM;
+            isHost=false;
+            hostArea.style.display='block';
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
+            addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
+
+            peer=new Peer();
+            peer.on('open',()=>{
+                conn=peer.connect(ROOM);
+                setupConn();
+            });
+            peer.on('error',(e)=>{
+                addSys('❌ خطأ: '+e.type+' - تأكد من أن المضيف أنشأ الغرفة أولاً');
+            });
+        }
+
+        function setupConn(){
+            conn.on('open',()=>{
+                connected=true;
+                updStatus(true);
+                addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
+            });
+            conn.on('data',(data)=>{
+                if(data.type==='chat') addMsg(data.text,false);
+            });
+            conn.on('close',()=>{
+                connected=false;
+                updStatus(false);
+                addSys('⚠️ انقطع الاتصال');
+            });
+            conn.on('error',()=>{
+                addSys('⚠️ خطأ في الاتصال');
+            });
+        }
+
         hostBtn.onclick=()=>{
-            if(pc){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
+            if(peer){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
             doHost();
         };
 
-        joinBtn.onclick=async()=>{
+        joinBtn.onclick=()=>{
             const c=joinCode.value.trim();
             if(!c||c.length!==4||!/^\d{4}$/.test(c)){addSys('⚠️ كود الغرفة يجب أن يكون 4 أرقام');return}
-            if(pc){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
-            await doJoin(c);
+            if(peer){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
+            doJoin(c);
         };
 
-        joinCode.onkeydown=e=>{
-            if(e.key==='Enter'){e.preventDefault();joinBtn.click();}
-        };
-
+        joinCode.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();joinBtn.click();}};
         resetBtn.onclick=resetAll;
         sendBtn.onclick=sendMsg;
-        msgInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sendMsg()}};
+        msgInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sendMsg();}};
 
         addSys('🚀 الموقع جاهز - اضغط "إنشاء غرفة" للبدء');
     </script>
