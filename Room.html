@@ -15,13 +15,13 @@
         .h span{font-size:.85rem;font-weight:700}
         .s{font-size:.65rem;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,.1);margin-right:auto}
         .s.on{background:rgba(78,204,163,.2);color:#4ecca3}
-        .r{font-size:.75rem;color:#ffc107;font-weight:700}
-        .cd{padding:10px 14px;background:rgba(0,0,0,.2);display:flex;flex-direction:column;gap:6px}
-        .cd label{font-size:.65rem;color:#a0a0b0;font-weight:600}
+        .r{font-size:.9rem;color:#ffc107;font-weight:700;letter-spacing:3px}
+        .cd{padding:10px 14px;background:rgba(0,0,0,.2);display:flex;flex-direction:column;gap:8px}
+        .cd label{font-size:.7rem;color:#a0a0b0;font-weight:600}
         .rw{display:flex;gap:6px}
-        input{flex:1;background:#0d0d1a;border:1px solid #2a2a4a;color:#eee;padding:8px 12px;border-radius:8px;font-size:.7rem;outline:none;font-family:'Courier New',monospace;text-align:center}
+        input{flex:1;background:#0d0d1a;border:1px solid #2a2a4a;color:#eee;padding:10px 12px;border-radius:8px;font-size:.8rem;outline:none;font-family:'Courier New',monospace;text-align:center;letter-spacing:4px}
         input:focus{border-color:#e94560}
-        button{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:.7rem;transition:.2s;font-family:inherit;white-space:nowrap}
+        button{padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:.75rem;transition:.2s;font-family:inherit;white-space:nowrap}
         button:active{transform:scale(.95)}
         .b1{background:#e94560;color:#fff}.b2{background:#0f3460;color:#eee;border:1px solid #2a2a4a}
         .b3{background:#4ecca3;color:#000}.b4{background:#ffc107;color:#000}
@@ -34,31 +34,39 @@
         .sy{align-self:center;background:rgba(255,255,255,.05);color:#a0a0b0;font-size:.65rem;padding:5px 12px;border-radius:14px;text-align:center;max-width:90%}
         .tm{font-size:.55rem;opacity:.5;display:block;margin-top:2px}
         .ir{display:flex;gap:6px;padding:10px 14px;border-top:1px solid #2a2a4a;background:rgba(0,0,0,.1)}
-        .ir input{border-radius:20px;text-align:right;font-family:inherit;font-size:.8rem}
-        .sb{width:40px;height:40px;border-radius:50%;background:#e94560;border:none;color:#fff;font-size:1rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+        .ir input{border-radius:20px;text-align:right;font-family:inherit;font-size:.8rem;letter-spacing:0}
+        .sb{width:42px;height:42px;border-radius:50%;background:#e94560;border:none;color:#fff;font-size:1rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
         .sb:disabled{background:#555;cursor:not-allowed}
         .ht{text-align:center;color:#a0a0b0;font-size:.7rem;padding:15px;line-height:1.7}
+        .code-box{background:#0d0d1a;border:2px dashed #4ecca3;border-radius:12px;padding:14px;text-align:center;margin:6px 0}
+        .code-box .big-code{font-size:2rem;letter-spacing:10px;color:#4ecca3;font-weight:700;font-family:'Courier New',monospace}
+        .code-box .label{font-size:.6rem;color:#a0a0b0;margin-bottom:4px}
     </style>
 </head>
 <body>
     <div class="c">
         <div class="h">
             <div class="d" id="dot"></div>
-            <span>⚡ غرفة P2P</span>
+            <span>⚡ غرفة</span>
             <span class="r" id="roomNum">----</span>
             <span class="s" id="status">غير متصل</span>
         </div>
         <div class="cd" id="codes">
             <button class="b1" id="hostBtn" style="width:100%">🏠 إنشاء غرفة جديدة</button>
             <div id="hostArea" style="display:none;">
-                <label>🔑 كود الدعوة (انسخه وأرسله):</label>
-                <div class="rw"><input id="myCode" readonly placeholder="جاري التوليد..."><button class="b2" id="copy" disabled>📋 نسخ</button></div>
+                <div class="code-box">
+                    <div class="label">🔑 كود الغرفة</div>
+                    <div class="big-code" id="roomCode">----</div>
+                </div>
             </div>
-            <label style="margin-top:6px;">📥 الصق كود صديقك للانضمام:</label>
-            <div class="rw"><input id="peerCode" placeholder="الصق الكود..."><button class="b3" id="join">🔗 انضمام</button></div>
-            <button class="b4" id="reset" style="width:100%">🔄 إعادة تعيين</button>
+            <label>📥 أدخل كود الغرفة للانضمام:</label>
+            <div class="rw">
+                <input id="joinCode" type="text" maxlength="4" placeholder="1234" inputmode="numeric" pattern="[0-9]*" style="letter-spacing:6px;font-size:1rem;">
+                <button class="b3" id="joinBtn">🔗 انضمام</button>
+            </div>
+            <button class="b4" id="reset" style="width:100%">🔄 مغادرة الغرفة</button>
         </div>
-        <div class="m" id="msgs"><div class="ht" id="hint">👥 أهلاً بك!<br>اضغط "إنشاء غرفة" للبدء<br>أو الصق كود صديقك للانضمام</div></div>
+        <div class="m" id="msgs"><div class="ht" id="hint">👥 أهلاً بك!<br>اضغط "إنشاء غرفة" للبدء<br>أو أدخل كود صديقك للانضمام</div></div>
         <div class="ir">
             <input id="msgInput" placeholder="اكتب رسالة..." disabled>
             <button class="sb" id="sendBtn" disabled>➤</button>
@@ -67,29 +75,27 @@
 
     <script>
         const $=id=>document.getElementById(id);
-        const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),myCode=$('myCode'),copyBtn=$('copy'),
-              peerCode=$('peerCode'),joinBtn=$('join'),resetBtn=$('reset'),msgs=$('msgs'),
+        const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),roomCode=$('roomCode'),
+              joinCode=$('joinCode'),joinBtn=$('joinBtn'),resetBtn=$('reset'),msgs=$('msgs'),
               hint=$('hint'),msgInput=$('msgInput'),sendBtn=$('sendBtn'),
               hostBtn=$('hostBtn'),hostArea=$('hostArea');
 
         let pc=null,dc=null,isHost=false,connected=false,candidates=[];
+        let ROOM='----';
 
         function genRoom(){
-            const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let r='';
-            for(let i=0;i<4;i++) r+=ch[Math.floor(Math.random()*ch.length)];
+            for(let i=0;i<4;i++) r+=Math.floor(Math.random()*10);
             return r;
         }
-        let ROOM='----';
-        roomNum.textContent='🏠 '+ROOM;
 
         function updStatus(on){
             connected=on;
             dot.className='d'+(on?' on':'');
             status.className='s'+(on?' on':'');
-            status.textContent=on?'✅ متصل':'غير متصل';
-            msgInput.disabled=!on;
-            sendBtn.disabled=!on;
+            status.textContent=on?'✅ متصل':'في الانتظار';
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
             if(on) msgInput.focus();
         }
 
@@ -118,7 +124,7 @@
             p.onconnectionstatechange=()=>{
                 if(p.connectionState==='connected'){
                     updStatus(true);
-                    addSys('🎉 تمت عملية الدخول إلى الغرفة '+ROOM+' بنجاح!');
+                    addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
                 }
                 if(p.connectionState==='disconnected'||p.connectionState==='failed'){
                     updStatus(false);
@@ -131,8 +137,8 @@
 
         function setupDC(ch){
             dc=ch;
-            ch.onopen=()=>{updStatus(true);addSys('📡 قناة البيانات مفتوحة')};
-            ch.onclose=()=>{updStatus(false);addSys('📡 قناة البيانات أغلقت')};
+            ch.onopen=()=>{updStatus(true);addSys('📡 تم فتح قناة المحادثة')};
+            ch.onclose=()=>{updStatus(false);addSys('📡 أغلقت قناة المحادثة')};
             ch.onmessage=e=>{
                 try{const d=JSON.parse(e.data);if(d.type==='chat') addMsg(d.text,false)}
                 catch{addMsg(e.data,false)}
@@ -151,62 +157,85 @@
 
         async function doHost(){
             ROOM=genRoom();
-            roomNum.textContent='🏠 '+ROOM;
+            roomNum.textContent=ROOM;
+            roomCode.textContent=ROOM;
             isHost=true;
             hostArea.style.display='block';
-            myCode.value='جاري التوليد...';
-            copyBtn.disabled=true;
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
             addSys('🏠 تم إنشاء الغرفة: '+ROOM);
+            addSys('💬 يمكنك الكتابة الآن حتى قبل انضمام الآخرين');
             pc=makePC();
             dc=pc.createDataChannel('chat');
             setupDC(dc);
             const offer=await pc.createOffer();
             await pc.setLocalDescription(offer);
             await waitICE(pc);
-            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'offer',sdp:pc.localDescription.sdp,candidates}))));
-            myCode.value=full;
-            copyBtn.disabled=false;
+            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'offer',sdp:pc.localDescription.sdp,candidates,room:ROOM}))));
+            localStorage.setItem('room_'+ROOM+'_offer',full);
             candidates=[];
-            addSys('✅ الكود جاهز - انسخه وأرسله لصديقك');
+            checkForAnswer();
         }
 
         async function doJoin(code){
+            ROOM=code;
+            roomNum.textContent=ROOM;
+            roomCode.textContent=ROOM;
             isHost=false;
+            hostArea.style.display='block';
+            msgInput.disabled=false;
+            sendBtn.disabled=false;
+            addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
+            
+            const offerCode=localStorage.getItem('room_'+ROOM+'_offer');
+            if(!offerCode){
+                addSys('❌ الغرفة غير موجودة. تأكد من الكود أو اطلب من صديقك إنشاء الغرفة أولاً.');
+                addSys('💬 يمكنك الكتابة في هذه الغرفة حتى يتم الاتصال');
+                return;
+            }
+            
             let data;
-            try{data=JSON.parse(decodeURIComponent(escape(atob(code))))}catch{addSys('❌ كود غير صالح');return}
-            ROOM='????';
-            roomNum.textContent='🏠 '+ROOM;
+            try{data=JSON.parse(decodeURIComponent(escape(atob(offerCode))))}catch{addSys('❌ خطأ في بيانات الغرفة');return}
             pc=makePC();
             if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
             await pc.setRemoteDescription(new RTCSessionDescription({type:'offer',sdp:data.sdp}));
             const ans=await pc.createAnswer();
             await pc.setLocalDescription(ans);
             await waitICE(pc);
-            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'answer',sdp:pc.localDescription.sdp,candidates}))));
+            const full=btoa(unescape(encodeURIComponent(JSON.stringify({type:'answer',sdp:pc.localDescription.sdp,candidates,room:ROOM}))));
             candidates=[];
-            myCode.value=full;
-            copyBtn.disabled=false;
-            hostArea.style.display='block';
-            addSys('📤 كود الرد جاهز - انسخه وأرسله للمضيف');
-            addSys('⏳ الصق كود التأكيد من المضيف واضغط انضمام');
+            localStorage.setItem('room_'+ROOM+'_answer',full);
+            addSys('📤 تم إرسال طلب الانضمام...');
         }
 
-        async function completeHost(code){
-            if(!isHost) return addSys('❌ لست المضيف');
-            let data;
-            try{data=JSON.parse(decodeURIComponent(escape(atob(code))))}catch{addSys('❌ كود غير صالح');return}
-            if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
-            await pc.setRemoteDescription(new RTCSessionDescription({type:'answer',sdp:data.sdp}));
-            addSys('✅ اكتمل الاتصال!');
-            myCode.value='✅ متصل';
-            copyBtn.disabled=true;
+        function checkForAnswer(){
+            const interval=setInterval(async()=>{
+                if(connected){clearInterval(interval);return}
+                if(!isHost||!pc) return;
+                const ansCode=localStorage.getItem('room_'+ROOM+'_answer');
+                if(!ansCode) return;
+                try{
+                    const data=JSON.parse(decodeURIComponent(escape(atob(ansCode))));
+                    if(data.room!==ROOM) return;
+                    if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
+                    await pc.setRemoteDescription(new RTCSessionDescription({type:'answer',sdp:data.sdp}));
+                    addSys('✅ اكتمل الاتصال!');
+                    localStorage.removeItem('room_'+ROOM+'_answer');
+                    clearInterval(interval);
+                }catch(e){}
+            },2000);
         }
 
         function sendMsg(){
             const t=msgInput.value.trim();
-            if(!t||!connected||!dc||dc.readyState!=='open') return;
-            dc.send(JSON.stringify({type:'chat',text:t}));
-            addMsg(t,true);
+            if(!t) return;
+            if(connected && dc && dc.readyState==='open'){
+                dc.send(JSON.stringify({type:'chat',text:t}));
+                addMsg(t,true);
+            } else {
+                addMsg(t,true);
+                addSys('⚠️ لم يتم الإرسال - لا يوجد اتصال حتى الآن');
+            }
             msgInput.value='';
         }
 
@@ -215,31 +244,32 @@
             if(pc) pc.close();
             pc=null;dc=null;candidates=[];isHost=false;connected=false;
             ROOM='----';
-            roomNum.textContent='🏠 '+ROOM;
+            roomNum.textContent='----';
+            roomCode.textContent='----';
             updStatus(false);
-            myCode.value='';copyBtn.disabled=true;peerCode.value='';
+            msgInput.disabled=true;
+            sendBtn.disabled=true;
+            msgInput.value='';
+            joinCode.value='';
             hostArea.style.display='none';
-            msgInput.value='';hint.style.display='';
-            addSys('🔄 تم التعيين - ابدأ من جديد');
+            hint.style.display='';
+            addSys('🔄 تم مغادرة الغرفة');
         }
 
         hostBtn.onclick=()=>{
-            if(pc){addSys('⚠️ استخدم إعادة التعيين أولاً');return}
+            if(pc){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
             doHost();
         };
 
-        copyBtn.onclick=()=>{
-            if(myCode.value&&myCode.value!=='✅ متصل'){
-                navigator.clipboard.writeText(myCode.value).then(()=>addSys('📋 تم النسخ!')).catch(()=>{myCode.select();document.execCommand('copy');addSys('📋 تم النسخ!')});
-            }
+        joinBtn.onclick=async()=>{
+            const c=joinCode.value.trim();
+            if(!c||c.length!==4||!/^\d{4}$/.test(c)){addSys('⚠️ كود الغرفة يجب أن يكون 4 أرقام');return}
+            if(pc){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
+            await doJoin(c);
         };
 
-        joinBtn.onclick=async()=>{
-            const c=peerCode.value.trim();
-            if(!c) return addSys('⚠️ الصق الكود أولاً');
-            if(isHost&&pc) await completeHost(c);
-            else if(!pc) await doJoin(c);
-            else addSys('⚠️ استخدم إعادة التعيين أولاً');
+        joinCode.onkeydown=e=>{
+            if(e.key==='Enter'){e.preventDefault();joinBtn.click();}
         };
 
         resetBtn.onclick=resetAll;
