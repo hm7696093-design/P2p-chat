@@ -8,7 +8,7 @@
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI',Tahoma,sans-serif;background:#1a1a2e;color:#eee;height:100vh;display:flex;justify-content:center;align-items:center;padding:10px}
         .c{width:100%;max-width:460px;background:#16213e;border-radius:16px;box-shadow:0 15px 40px rgba(0,0,0,.5);display:flex;flex-direction:column;height:90vh;max-height:650px}
-        .h{background:#0f3460;padding:12px 16px;display:flex;align-items:center;gap:10px;border-radius:16px 16px 0 0}
+        .h{background:#0f3460;padding:12px 16px;display:flex;align-items:center;gap:10px;border-radius:16px 16px 0 0;flex-wrap:wrap}
         .d{width:10px;height:10px;border-radius:50%;background:#e94560}
         .d.on{background:#4ecca3;animation:p 2s infinite}
         @keyframes p{0%,100%{box-shadow:0 0 0 0 rgba(78,204,163,.6)}50%{box-shadow:0 0 0 8px rgba(78,204,163,0)}}
@@ -45,17 +45,20 @@
         <div class="h">
             <div class="d" id="dot"></div>
             <span>⚡ غرفة P2P</span>
-            <span class="r" id="roomNum"></span>
+            <span class="r" id="roomNum">----</span>
             <span class="s" id="status">غير متصل</span>
         </div>
         <div class="cd" id="codes">
-            <label>🔑 كود الدعوة (انسخه وأرسله):</label>
-            <div class="rw"><input id="myCode" readonly placeholder="جاري التوليد..."><button class="b2" id="copy" disabled>📋 نسخ</button></div>
-            <label>📥 الصق كود صديقك للانضمام:</label>
+            <button class="b1" id="hostBtn" style="width:100%">🏠 إنشاء غرفة جديدة</button>
+            <div id="hostArea" style="display:none;">
+                <label>🔑 كود الدعوة (انسخه وأرسله):</label>
+                <div class="rw"><input id="myCode" readonly placeholder="جاري التوليد..."><button class="b2" id="copy" disabled>📋 نسخ</button></div>
+            </div>
+            <label style="margin-top:6px;">📥 الصق كود صديقك للانضمام:</label>
             <div class="rw"><input id="peerCode" placeholder="الصق الكود..."><button class="b3" id="join">🔗 انضمام</button></div>
             <button class="b4" id="reset" style="width:100%">🔄 إعادة تعيين</button>
         </div>
-        <div class="m" id="msgs"><div class="ht" id="hint">👥 أهلاً بك!<br>انسخ كودك وأرسله لصديق<br>أو الصق كوده للانضمام</div></div>
+        <div class="m" id="msgs"><div class="ht" id="hint">👥 أهلاً بك!<br>اضغط "إنشاء غرفة" للبدء<br>أو الصق كود صديقك للانضمام</div></div>
         <div class="ir">
             <input id="msgInput" placeholder="اكتب رسالة..." disabled>
             <button class="sb" id="sendBtn" disabled>➤</button>
@@ -66,18 +69,18 @@
         const $=id=>document.getElementById(id);
         const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),myCode=$('myCode'),copyBtn=$('copy'),
               peerCode=$('peerCode'),joinBtn=$('join'),resetBtn=$('reset'),msgs=$('msgs'),
-              hint=$('hint'),msgInput=$('msgInput'),sendBtn=$('sendBtn');
+              hint=$('hint'),msgInput=$('msgInput'),sendBtn=$('sendBtn'),
+              hostBtn=$('hostBtn'),hostArea=$('hostArea');
 
         let pc=null,dc=null,isHost=false,connected=false,candidates=[];
 
-        // توليد رقم غرفة عشوائي من 4 خانات (أرقام وحروف)
         function genRoom(){
             const ch='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let r='';
             for(let i=0;i<4;i++) r+=ch[Math.floor(Math.random()*ch.length)];
             return r;
         }
-        const ROOM=genRoom();
+        let ROOM='----';
         roomNum.textContent='🏠 '+ROOM;
 
         function updStatus(on){
@@ -147,7 +150,13 @@
         }
 
         async function doHost(){
+            ROOM=genRoom();
+            roomNum.textContent='🏠 '+ROOM;
             isHost=true;
+            hostArea.style.display='block';
+            myCode.value='جاري التوليد...';
+            copyBtn.disabled=true;
+            addSys('🏠 تم إنشاء الغرفة: '+ROOM);
             pc=makePC();
             dc=pc.createDataChannel('chat');
             setupDC(dc);
@@ -165,6 +174,8 @@
             isHost=false;
             let data;
             try{data=JSON.parse(decodeURIComponent(escape(atob(code))))}catch{addSys('❌ كود غير صالح');return}
+            ROOM='????';
+            roomNum.textContent='🏠 '+ROOM;
             pc=makePC();
             if(data.candidates) for(const c of data.candidates) try{await pc.addIceCandidate(new RTCIceCandidate(c))}catch{}
             await pc.setRemoteDescription(new RTCSessionDescription({type:'offer',sdp:data.sdp}));
@@ -175,6 +186,7 @@
             candidates=[];
             myCode.value=full;
             copyBtn.disabled=false;
+            hostArea.style.display='block';
             addSys('📤 كود الرد جاهز - انسخه وأرسله للمضيف');
             addSys('⏳ الصق كود التأكيد من المضيف واضغط انضمام');
         }
@@ -202,11 +214,19 @@
             if(dc) dc.close();
             if(pc) pc.close();
             pc=null;dc=null;candidates=[];isHost=false;connected=false;
+            ROOM='----';
+            roomNum.textContent='🏠 '+ROOM;
             updStatus(false);
             myCode.value='';copyBtn.disabled=true;peerCode.value='';
+            hostArea.style.display='none';
             msgInput.value='';hint.style.display='';
             addSys('🔄 تم التعيين - ابدأ من جديد');
         }
+
+        hostBtn.onclick=()=>{
+            if(pc){addSys('⚠️ استخدم إعادة التعيين أولاً');return}
+            doHost();
+        };
 
         copyBtn.onclick=()=>{
             if(myCode.value&&myCode.value!=='✅ متصل'){
@@ -226,7 +246,7 @@
         sendBtn.onclick=sendMsg;
         msgInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sendMsg()}};
 
-        (async()=>{addSys('🚀 جاري التجهيز...');await doHost()})();
+        addSys('🚀 الموقع جاهز - اضغط "إنشاء غرفة" للبدء');
     </script>
 </body>
 </html>
