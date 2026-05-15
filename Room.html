@@ -71,43 +71,39 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.1/dist/peerjs.min.js"></script>
-    <script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+        import { getDatabase, ref, set, onChildAdded, remove, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBnPqDaXxGJSG5pLBFvP8jOOx8K4MEvB8g",
+            authDomain: "p2p-chat-rooms.firebaseapp.com",
+            databaseURL: "https://p2p-chat-rooms-default-rtdb.firebaseio.com",
+            projectId: "p2p-chat-rooms",
+            storageBucket: "p2p-chat-rooms.appspot.com",
+            messagingSenderId: "109876543210",
+            appId: "1:109876543210:web:abcdef123456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
         const $=id=>document.getElementById(id);
         const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),roomCode=$('roomCode'),
               joinCode=$('joinCode'),joinBtn=$('joinBtn'),resetBtn=$('reset'),msgs=$('msgs'),
               hint=$('hint'),msgInput=$('msgInput'),sendBtn=$('sendBtn'),
               hostBtn=$('hostBtn'),hostArea=$('hostArea'),joinArea=$('joinArea');
 
-        let peer=null,conn=null,isHost=false,connected=false,ROOM='----';
-
-        // تغيير خادم الإشارة إلى خادم يعمل
-        const SIGNAL_SERVER = {
-            host: 'peerjs-server.herokuapp.com',
-            port: 443,
-            secure: true,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    {
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    {
-                        urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    }
-                ]
-            }
-        };
+        let ROOM='----',isHost=false,connected=false,myId='';
 
         function genRoom(){
             let r='';
             for(let i=0;i<4;i++) r+=Math.floor(Math.random()*10);
             return r;
+        }
+
+        function genId(){
+            return 'user_'+Math.random().toString(36).substr(2,9);
         }
 
         function updStatus(on){
@@ -142,23 +138,23 @@
         function sendMsg(){
             const t=msgInput.value.trim();
             if(!t) return;
-            if(connected && conn && conn.open){
-                conn.send({type:'chat',text:t});
-                addMsg(t,true);
-            } else {
-                addMsg(t,true);
-                addSys('⚠️ في انتظار اتصال الطرف الآخر...');
-            }
+            if(ROOM==='----') return;
+            addMsg(t,true);
+            const msgRef=ref(db,'rooms/'+ROOM+'/messages');
+            const newMsg=ref(db,'rooms/'+ROOM+'/messages/'+Date.now());
+            set(newMsg,{text:t,sender:myId,time:Date.now()});
             msgInput.value='';
         }
 
         function resetAll(){
-            if(conn) conn.close();
-            if(peer) peer.destroy();
-            peer=null;conn=null;isHost=false;connected=false;
+            if(ROOM!=='----'){
+                const userRef=ref(db,'rooms/'+ROOM+'/users/'+myId);
+                remove(userRef);
+            }
             ROOM='----';
             roomNum.textContent='----';
             roomCode.textContent='----';
+            connected=false;
             updStatus(false);
             msgInput.disabled=true;
             sendBtn.disabled=true;
@@ -172,8 +168,9 @@
             addSys('🔄 تم مغادرة الغرفة');
         }
 
-        function doHost(){
+        function createRoom(){
             ROOM=genRoom();
+            myId=genId();
             roomNum.textContent=ROOM;
             roomCode.textContent=ROOM;
             isHost=true;
@@ -186,21 +183,31 @@
             addSys('🏠 تم إنشاء الغرفة: '+ROOM);
             addSys('⏳ في انتظار انضمام صديق...');
 
-            peer=new Peer(ROOM, SIGNAL_SERVER);
-            peer.on('open',(id)=>{
-                addSys('✅ الغرفة جاهزة - الكود: '+ROOM);
+            const userRef=ref(db,'rooms/'+ROOM+'/users/'+myId);
+            set(userRef,{host:true,time:Date.now()});
+            onDisconnect(userRef).remove();
+
+            const usersRef=ref(db,'rooms/'+ROOM+'/users');
+            onChildAdded(usersRef,(snap)=>{
+                if(snap.key!==myId){
+                    connected=true;
+                    updStatus(true);
+                    addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
+                }
             });
-            peer.on('connection',(c)=>{
-                conn=c;
-                setupConn();
-            });
-            peer.on('error',(e)=>{
-                addSys('❌ خطأ: '+e.type);
+
+            const msgsRef=ref(db,'rooms/'+ROOM+'/messages');
+            onChildAdded(msgsRef,(snap)=>{
+                const data=snap.val();
+                if(data.sender!==myId){
+                    addMsg(data.text,false);
+                }
             });
         }
 
-        function doJoin(code){
+        function joinRoom(code){
             ROOM=code;
+            myId=genId();
             roomNum.textContent=ROOM;
             roomCode.textContent=ROOM;
             isHost=false;
@@ -212,47 +219,34 @@
             sendBtn.disabled=false;
             addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
 
-            peer=new Peer(SIGNAL_SERVER);
-            peer.on('open',()=>{
-                conn=peer.connect(ROOM);
-                setupConn();
+            const userRef=ref(db,'rooms/'+ROOM+'/users/'+myId);
+            set(userRef,{host:false,time:Date.now()});
+            onDisconnect(userRef).remove();
+
+            const usersRef=ref(db,'rooms/'+ROOM+'/users');
+            onChildAdded(usersRef,(snap)=>{
+                if(snap.key!==myId){
+                    connected=true;
+                    updStatus(true);
+                    addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
+                }
             });
-            peer.on('error',(e)=>{
-                addSys('❌ خطأ: '+e.type+' - تأكد من أن المضيف أنشأ الغرفة أولاً');
+
+            const msgsRef=ref(db,'rooms/'+ROOM+'/messages');
+            onChildAdded(msgsRef,(snap)=>{
+                const data=snap.val();
+                if(data.sender!==myId){
+                    addMsg(data.text,false);
+                }
             });
         }
 
-        function setupConn(){
-            conn.on('open',()=>{
-                connected=true;
-                updStatus(true);
-                addSys('🎉 تم الاتصال بالغرفة '+ROOM+' بنجاح!');
-            });
-            conn.on('data',(data)=>{
-                if(data.type==='chat') addMsg(data.text,false);
-            });
-            conn.on('close',()=>{
-                connected=false;
-                updStatus(false);
-                addSys('⚠️ انقطع الاتصال');
-            });
-            conn.on('error',()=>{
-                addSys('⚠️ خطأ في الاتصال');
-            });
-        }
-
-        hostBtn.onclick=()=>{
-            if(peer){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
-            doHost();
-        };
-
+        hostBtn.onclick=createRoom;
         joinBtn.onclick=()=>{
             const c=joinCode.value.trim();
             if(!c||c.length!==4||!/^\d{4}$/.test(c)){addSys('⚠️ كود الغرفة يجب أن يكون 4 أرقام');return}
-            if(peer){addSys('⚠️ استخدم مغادرة الغرفة أولاً');return}
-            doJoin(c);
+            joinRoom(c);
         };
-
         joinCode.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();joinBtn.click();}};
         resetBtn.onclick=resetAll;
         sendBtn.onclick=sendMsg;
