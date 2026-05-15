@@ -71,7 +71,8 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.1/peerjs.min.js"></script>
+    <!-- التغيير 1: استخدام إصدار أحدث من مكتبة PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <script>
         const $=id=>document.getElementById(id);
         const dot=$('dot'),status=$('status'),roomNum=$('roomNum'),roomCode=$('roomCode'),
@@ -163,7 +164,27 @@
             addSys('🏠 تم إنشاء الغرفة: '+ROOM);
             addSys('⏳ في انتظار انضمام صديق...');
 
-            peer=new Peer(ROOM);
+            // التغيير 2: إعداد خادم TURN مجاني لتجنب مشاكل الاتصال
+            const iceServersConfig = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ]
+            };
+
+            peer=new Peer(ROOM, {
+                config: iceServersConfig
+            });
             peer.on('open',(id)=>{
                 addSys('✅ الغرفة جاهزة - الكود: '+ROOM);
             });
@@ -189,7 +210,26 @@
             sendBtn.disabled=false;
             addSys('🔗 جاري الانضمام إلى الغرفة: '+ROOM+'...');
 
-            peer=new Peer();
+            const iceServersConfig = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ]
+            };
+
+            peer=new Peer({
+                config: iceServersConfig
+            });
             peer.on('open',()=>{
                 conn=peer.connect(ROOM);
                 setupConn();
